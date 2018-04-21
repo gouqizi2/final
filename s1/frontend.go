@@ -9,24 +9,29 @@
 //	"net"
   )
 
-  type page struct {
-  	title	string
-  	body	[]byte
+  type User struct {
+	Username string
+	Password string
   }
+
   type Page struct {
 	Title string
 	Body    []byte
   }
-  func (p *page) save() {
-  	filename := p.title + ".txt"
-  	ioutil.WriteFile(filename, p.body, 0600)
+  func (p *Page) save() {
+  	filename := p.Title + ".txt"
+  	ioutil.WriteFile(filename, p.Body, 0600)
   }
 
+  type Info struct {
+        Username string
+        Password string
+  }
   const lenPath = len("/view/")
-   func loadPage(title string) *page {
+   func loadPage(title string) *Page {
   	filename := title + ".txt"
   	body ,_ := ioutil.ReadFile(filename)
-  	return &page{title: title, body: body}
+  	return &Page{Title: title, Body: body}
   } 
   func viewHandler(w http.ResponseWriter, r *http.Request) {
   	title := r.URL.Path[lenPath:]
@@ -35,15 +40,15 @@
   }
    func saveHandler(w http.ResponseWriter, r *http.Request) {
   	title := r.URL.Path[lenPath:]
-  	body := r.FormValue("username")+r.FormValue("password")
-  	p := &Page{Title: title, Body: []byte(body)}
+//  	body := r.FormValue("username")+r.FormValue("password")
+  	i := &Info{Username: r.FormValue("username"), Password: r.FormValue("password")}
 	client, err := rpc.DialHTTP("tcp", "127.0.0.1:1234")
 	if err != nil {
         	log.Fatal("dialing:", err)
 	}
 
-  	var args = p
-	var reply int
+  	var args = i
+	var reply bool
 	err = client.Call("Req.Create", args, &reply)
 	if err != nil {
         	log.Fatal("arith error:", err)
@@ -51,13 +56,14 @@
   	http.Redirect(w, r, "/view/"+title, http.StatusFound)
   }
    func login(w http.ResponseWriter, r *http.Request) {	
-        body := r.FormValue("username")+r.FormValue("password")
+//        body := r.FormValue("username")+r.FormValue("password")
+	i := &Info{Username: r.FormValue("username"), Password: r.FormValue("password")}
 	client, err := rpc.DialHTTP("tcp", "127.0.0.1:1234")
 	if err != nil {
         	log.Fatal("dialing:", err)
 	}
 
-	var args = body
+	var args = i
 	var reply bool
 	err = client.Call("Req.Login",args, &reply)
 	if err != nil {
@@ -89,7 +95,7 @@
         p := loadPage(title)
         renderTemplate(w, "failed", p)
   }  
-  func renderTemplate(w http.ResponseWriter, tmpl string, p *page) {
+  func renderTemplate(w http.ResponseWriter, tmpl string, p *Page) {
   	t, _ := template.ParseFiles(tmpl+".html")
   	t.Execute(w,p)
   }
