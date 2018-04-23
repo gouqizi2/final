@@ -14,10 +14,15 @@ type Req struct{
 }
 
   const lenPath = len("/view/")
-    type Page struct {
+  type Page struct {
         Title   string
        	Body    []byte
   }
+  type Pass struct {
+	Username string
+	Page   Page
+  }
+var cont = make(map[string]Page)
   type Info struct {
 	Username string
 	Password string
@@ -38,6 +43,19 @@ type Req struct{
 	}else   {
 		*reply = false
 	}
+	return nil
+  }
+  func (r *Req) Post(p Pass, reply *bool) error {
+        cont[p.Username] = p.Page
+	*reply = true
+        return nil
+  }
+  func (r *Req) Get(usern string, reply *[]byte) error {
+	var tempres = ""
+	for u,v := range cont {
+		tempres = tempres + u + ":" + v.Title+" " + string(v.Body) + "\n"
+	}
+	*reply = []byte(tempres)
 	return nil
   }
 //  func (r *Req) Create(args Page, reply *int) error {
