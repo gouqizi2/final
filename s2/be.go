@@ -1,15 +1,15 @@
   package main
-  
+
   import (
   	"net/http"
         "log"
 	"net/rpc"
 	"io/ioutil"
 	"net"
+    "strings"
   )
 
 var cache = make(map[string]string)
-
 type Req struct{
 }
 
@@ -22,6 +22,8 @@ type Req struct{
 	Username string
 	Page   Page
   }
+var pn *paxosNetwork
+var as = make([]*acceptor,0)
 var cont = make(map[string]Page)
   type Info struct {
 	Username string
@@ -33,12 +35,21 @@ var cont = make(map[string]Page)
   }
 
   func (r *Req) Create(i Info, reply *bool) error {
-	cache[i.Username] = i.Password
+    p := newProposer(1001, i.Password , pn.agentNetwork(1001), 1, 2, 3)
+    go p.run()
+
+    l := newLearner(2001, pn.agentNetwork(2001), 1,2,3)
+    value := l.learn()
+	cache[i.Username] = value
 	*reply = true
 	return nil
   } 
   func (r *Req) Login(i Info, reply *bool) error {
-	if i.Password == cache[i.Username] {
+    p:= newProposer(1001, cache[i.Username] , pn.agentNetwork(1001), 1, 2, 3)
+    go p.run()
+    l := newLearner(2001, pn.agentNetwork(2001), 1,2,3)
+    value := l.learn()
+	if i.Password == value {
 		*reply = true
 	}else   {
 		*reply = false
@@ -46,9 +57,14 @@ var cont = make(map[string]Page)
 	return nil
   }
   func (r *Req) Post(p Pass, reply *bool) error {
-        cont[p.Username] = p.Page
-	*reply = true
-        return nil
+    p1 := newProposer(1001, p.Page.Title + ":" + (string) (p.Page.Body) , pn.agentNetwork(1001), 1, 2, 3)
+    go p1.run()
+    l := newLearner(2001, pn.agentNetwork(2001), 1,2,3)
+    value := l.learn()
+    cont[p.Username] = Page{Title:(strings.Split(value,":")[0]), Body:([]byte)(strings.Split(value,":")[1]) }
+
+    *reply = true
+    return nil
   }
   func (r *Req) Get(usern string, reply *[]byte) error {
 	var tempres = ""
@@ -90,6 +106,15 @@ var cont = make(map[string]Page)
   }
 
   func main() {
+    pt := newPaxosNetwork(1, 2, 3, 1001, 2001)
+    pn = pt
+ //   as := make([]*acceptor, 0)
+    for i := 1; i <= 3; i++ {
+        as = append(as, newAcceptor(i, pn.agentNetwork(i), 2001))
+    }
+    for _, a := range as {
+        go a.run()
+    }
 	rpc.Register(new(Req))
 	rpc.HandleHTTP()
     	l, e := net.Listen("tcp", ":1234")
